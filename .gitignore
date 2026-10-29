@@ -1,0 +1,12 @@
+.env
+backend/target/
+frontend/node_modules/
+frontend/dist/
+.angular/
+*.log
+__pycache__/
+.idea/
+*.iml
+.vscode/
+.DS_Store
+caddy-root.crt
