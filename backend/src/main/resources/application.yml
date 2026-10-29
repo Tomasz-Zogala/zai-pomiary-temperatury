@@ -1,0 +1,46 @@
+server:
+  port: ${PORT:8080}
+  forward-headers-strategy: framework
+  error:
+    include-stacktrace: never
+    include-message: never
+    include-exception: false
+
+spring:
+  application:
+    name: pomiary
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/pomiary}
+    username: ${DB_USER:pomiary}
+    password: ${DB_PASSWORD:pomiary}
+    hikari:
+      maximum-pool-size: ${DB_POOL:5}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+  mvc:
+    problemdetails:
+      enabled: true
+
+app:
+  admin:
+    username: ${ADMIN_USERNAME:}
+    password: ${ADMIN_PASSWORD:}
+  token-ttl: ${TOKEN_TTL:PT2H}
+  # adresy frontendu, jeśli działa pod inną domeną (lista po przecinku)
+  cors-origins: ${CORS_ORIGINS:}
+  max-future-skew: PT5M
+
+logging:
+  level:
+    pl.pw.zai: INFO
