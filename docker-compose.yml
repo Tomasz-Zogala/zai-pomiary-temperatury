@@ -1,0 +1,47 @@
+# Lokalne uruchomienie: docker compose up --build  (zmienne w pliku .env, wzór w .env.example)
+services:
+  db:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_DB: pomiary
+      POSTGRES_USER: ${DB_USER:-pomiary}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?ustaw DB_PASSWORD w .env}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-pomiary} -d pomiary"]
+      interval: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/pomiary
+      DB_USER: ${DB_USER:-pomiary}
+      DB_PASSWORD: ${DB_PASSWORD}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ustaw ADMIN_PASSWORD w .env}
+    ports:
+      - "8080:8080"
+
+  # opcjonalnie: docker compose --profile https up
+  proxy:
+    image: caddy:2
+    profiles: ["https"]
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+
+volumes:
+  pgdata:
+  caddy-data:

@@ -1,0 +1,5 @@
+# Lokalny HTTPS (certyfikat z lokalnego CA Caddy), http:// przekierowuje na https://
+localhost {
+	tls internal
+	reverse_proxy api:8080
+}
