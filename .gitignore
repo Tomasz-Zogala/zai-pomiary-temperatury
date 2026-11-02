@@ -10,3 +10,4 @@ __pycache__/
 .vscode/
 .DS_Store
 caddy-root.crt
+backend/src/main/resources/static/
