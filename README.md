@@ -1,31 +1,37 @@
 # ZAI 26Z – Serie pomiarowe: temperatura w miastach
 
+[![CI](https://github.com/Tomasz-Zogala/zai-pomiary-temperatury/actions/workflows/ci.yml/badge.svg)](https://github.com/Tomasz-Zogala/zai-pomiary-temperatury/actions/workflows/ci.yml)
+
 Aplikacja zbiera i prezentuje pomiary temperatury z czujników (emulowanych generatorem pobierającym rzeczywiste dane z Open-Meteo).
 
 | Katalog | Zawartość |
 | --- | --- |
 | `backend/` | REST API – Java 21, Spring Boot 3.5, Spring Security, JPA, Flyway |
 | `generator/` | emulator czujnika (Python 3.9+, bez zależności) i skrypt danych przykładowych |
-| `frontend/` | aplikacja Angular (etap E2) |
+| `frontend/` | SPA – Angular 22, Angular Material, Chart.js; budowana do `backend/src/main/resources/static` |
 
 Baza danych: PostgreSQL 16 z rozszerzeniem TimescaleDB (tabela `measurement` jako hypertable). Bez TimescaleDB schemat działa jako zwykła tabela.
 
 ## Uruchomienie lokalne
 
-Wymagania: JDK 21, Maven 3.9, Docker (do bazy), Python 3.9+, Node.js 20+ (testy).
+Wymagania: Docker; do pracy bez Dockera także JDK 21, Maven 3.9, Node.js 22, Python 3.9+.
 
 ```bash
 cp .env.example .env              # uzupełnij hasła
-docker compose up --build         # baza TimescaleDB + API na http://localhost:8080
+docker compose up --build         # baza TimescaleDB + aplikacja (frontend i API) na http://localhost:8080
 ```
 
-Albo sama baza w Dockerze i backend z IDE / Mavena:
+Tryb deweloperski – baza w Dockerze, backend z Mavena, frontend z serwera Angulara (przeładowanie na żywo):
 
 ```bash
 docker compose up -d db
-cd backend
-DB_PASSWORD=... ADMIN_USERNAME=admin ADMIN_PASSWORD=... mvn spring-boot:run
+cd backend && DB_PASSWORD=... ADMIN_USERNAME=admin ADMIN_PASSWORD=... mvn spring-boot:run
+cd frontend && npm install && npm start        # http://localhost:4200, /api przekierowane na :8080
 ```
+
+`npm run build` w katalogu `frontend` buduje aplikację do `backend/src/main/resources/static` (katalog poza repozytorium), skąd serwuje ją Spring Boot.
+
+Testy backendu (JUnit, MockMvc, Testcontainers z TimescaleDB – wymagają Dockera) uruchamia `mvn verify` w katalogu `backend`; w GitHub Actions uruchamiane są przy każdym pushu (`.github/workflows/ci.yml`).
 
 Konto administratora powstaje przy pierwszym starcie z `ADMIN_USERNAME` / `ADMIN_PASSWORD` (hasło zapisywane jako bcrypt). Schemat tworzy Flyway (`backend/src/main/resources/db/migration`).
 
@@ -69,7 +75,7 @@ Caddy wystawia certyfikat z lokalnego CA i przekierowuje `http://` na `https://`
    - *Server parameters*: w `azure.extensions` zaznacz `TIMESCALEDB`, w `shared_preload_libraries` dodaj `timescaledb`, zapisz i zrestartuj serwer.
    - *Networking*: publiczny dostęp + „Allow public access from any Azure service”.
    - Utwórz bazę `pomiary`.
-2. **Backend** – *App Service* (Linux, Java 21, Java SE). Zbuduj `mvn -DskipTests package` i wdroż `backend/target/pomiary-1.0.0.jar` (np. rozszerzeniem Azure App Service w VS Code/IntelliJ albo `az webapp deploy`).
+2. **Aplikacja** – *App Service* (Linux, Java 21, Java SE). Zbuduj najpierw frontend (`cd frontend && npm ci && npm run build` – trafia do `backend/src/main/resources/static`), potem backend (`cd backend && mvn -DskipTests package`) i wdroż `backend/target/pomiary-1.0.0.jar` (np. rozszerzeniem Azure App Service w VS Code/IntelliJ albo `az webapp deploy`).
    - *Environment variables*: `DB_URL=jdbc:postgresql://<serwer>.postgres.database.azure.com:5432/pomiary?sslmode=require`, `DB_USER`, `DB_PASSWORD`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `PORT=80` (App Service dla Java SE przekazuje ruch na port z `PORT`/`SERVER_PORT`).
-   - *Configuration → General*: **HTTPS Only = On** (przekierowanie http → https), *Always On* = On (w planie płatnym, z kredytu studenckiego); w planie darmowym F1 aplikacja zasypia – trzeba to opisać w dokumentacji.
+   - *Configuration → General*: **Session affinity = Off** (inaczej Azure ustawia ciasteczko `ARRAffinity` bez `SameSite`), **HTTPS Only = On** (przekierowanie http → https), *Always On* = On (w planie płatnym, z kredytu studenckiego); w planie darmowym F1 aplikacja zasypia – trzeba to opisać w dokumentacji.
 3. Sprawdź `https://<aplikacja>.azurewebsites.net/api/health`, uruchom `seed_demo.py` i `zai-tests.mjs` dokładnie z danymi logowania, które trafią do formularza.
