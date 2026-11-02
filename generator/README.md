@@ -16,6 +16,7 @@ Python 3.9+, bez dodatkowych pakietów. Wyniki zawsze trafiają do `POST /api/me
 | `--step` | `history`: odstęp znaczników czasu, np. `1h` |
 | `--past-days` | `history` z Open-Meteo: dni wstecz (maks. 92) |
 | `--city` / `--lat --lon` | lokalizacja dla Open-Meteo (`warszawa`, `krakow`, `gdansk`, `zakopane`, `wroclaw`, `katowice`) |
+| `--start`, `--step-size` | `walk`: wartość początkowa i maksymalna zmiana między wynikami |
 | `--value` | `once`: konkretna wartość (np. 999, by pokazać odrzucenie) |
 | `--error-log` | plik logu odrzuceń i błędów (domyślnie `generator-errors.log`) |
 
@@ -51,3 +52,13 @@ python3 generator.py --mode once --value 999
 ```bash
 ZAI_ADMIN_PASSWORD='...' python3 seed_demo.py --api https://pomiary.example.com --user admin
 ```
+
+## Pokaz na żywo
+
+`demo_live.py` rejestruje dla każdej serii tymczasowy czujnik i co kilka sekund wysyła wynik bliski ostatniej zmierzonej temperaturze – wykres aktualizuje się na żywo (SSE). Ctrl+C wyrejestrowuje czujniki.
+
+```bash
+ZAI_ADMIN_PASSWORD='...' python3 demo_live.py --api https://pomiary.example.com --interval 3
+```
+
+W aplikacji wybierz zakres „15 min”, żeby nowe punkty były dobrze widoczne.

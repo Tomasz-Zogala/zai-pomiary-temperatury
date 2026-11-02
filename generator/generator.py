@@ -57,10 +57,12 @@ class RandomSource:
 
 
 class WalkSource:
+    """Błądzenie losowe od wartości --start (domyślnie środek przedziału) z krokiem do --step-size."""
+
     def __init__(self, a):
         self.lo, self.hi = a.min, a.max
-        self.v = (a.min + a.max) / 2
-        self.step = (a.max - a.min) * 0.05
+        self.v = a.start if a.start is not None else (a.min + a.max) / 2
+        self.step = a.step_size if a.step_size is not None else (a.max - a.min) * 0.05
 
     def value(self, ts, i):
         self.v = min(self.hi, max(self.lo, self.v + random.uniform(-self.step, self.step)))
@@ -242,6 +244,8 @@ def build_parser():
     p.add_argument("--past-days", type=int, default=3, help="history z open-meteo: liczba dni wstecz (maks. 92)")
     p.add_argument("--period", default="24h", help="sine: okres przebiegu")
     p.add_argument("--noise", type=float, default=0.5, help="sine: odchylenie standardowe szumu")
+    p.add_argument("--start", type=float, help="walk: wartość początkowa (np. ostatnia zmierzona temperatura)")
+    p.add_argument("--step-size", type=float, help="walk: maksymalna zmiana między kolejnymi wynikami")
     p.add_argument("--city", help="open-meteo: " + ", ".join(CITIES))
     p.add_argument("--lat", type=float)
     p.add_argument("--lon", type=float)

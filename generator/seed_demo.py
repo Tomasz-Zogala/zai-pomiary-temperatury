@@ -3,6 +3,7 @@
 
 Użycie:
   ZAI_ADMIN_PASSWORD='...' python3 seed_demo.py --api https://moja-app.example.com --user admin
+  python3 seed_demo.py --api ... --reset   # usuwa serie miast (z wynikami i czujnikami) i wgrywa je od nowa
 """
 
 import argparse
@@ -47,11 +48,20 @@ def main():
     p.add_argument("--past-days", type=int, default=3)
     p.add_argument("--source", choices=["open-meteo", "sine"], default="open-meteo",
                    help="sine - gdy Open-Meteo jest niedostępne")
+    p.add_argument("--reset", action="store_true",
+                   help="najpierw usuń serie miast; wyniki i czujniki usuwają się razem z nimi")
     a = p.parse_args()
     password = os.getenv("ZAI_ADMIN_PASSWORD") or getpass.getpass("Hasło administratora: ")
 
     token = call(a.api, "POST", "/api/auth/login", {"username": a.user, "password": password})["accessToken"]
-    existing = {s["name"] for s in call(a.api, "GET", "/api/series")}
+    current = call(a.api, "GET", "/api/series")
+    if a.reset:
+        names = {s["name"] for s in SERIES}
+        for s in [s for s in current if s["name"] in names]:
+            call(a.api, "DELETE", f"/api/series/{s['id']}", token=token)
+            print(f"Usunięto serię {s['name']}")
+        current = [s for s in current if s["name"] not in names]
+    existing = {s["name"] for s in current}
 
     for s in SERIES:
         if s["name"] in existing:
