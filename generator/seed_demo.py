@@ -20,6 +20,7 @@ SERIES = [
     {"name": "Kraków", "city": "krakow", "color": "#d62728", "icon": "square"},
     {"name": "Gdańsk", "city": "gdansk", "color": "#2ca02c", "icon": "triangle"},
     {"name": "Zakopane", "city": "zakopane", "color": "#9467bd", "icon": "diamond"},
+    {"name": "Katowice", "city": "katowice", "color": "#d95f02", "icon": "star"},
 ]
 
 
@@ -61,8 +62,8 @@ def main():
         }, token)
         sensor = call(a.api, "POST", "/api/sensors", {"name": f"Stacja {s['name']}", "seriesId": series["id"]}, token)
         print(f"\n== {s['name']}: seria {series['id']}, czujnik {sensor['id']}")
-        # klucz trafia do generatora tylko jako parametr wywołania
-        args = ["--api", a.api, "--key", sensor["apiKey"], "--mode", "history", "--source", a.source,
+        # klucz tylko jako parametr; forma --key=... bo klucz może zaczynać się od "-"
+        args = ["--api", a.api, f"--key={sensor['apiKey']}", "--mode", "history", "--source", a.source,
                 "--past-days", str(a.past_days)]
         args += ["--city", s["city"]] if a.source == "open-meteo" else ["--min", "-5", "--max", "20", "--count", "72"]
         generator.main(args)

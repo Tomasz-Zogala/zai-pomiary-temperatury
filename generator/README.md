@@ -19,6 +19,8 @@ Python 3.9+, bez dodatkowych pakietów. Wyniki zawsze trafiają do `POST /api/me
 | `--value` | `once`: konkretna wartość (np. 999, by pokazać odrzucenie) |
 | `--error-log` | plik logu odrzuceń i błędów (domyślnie `generator-errors.log`) |
 
+Klucz może zaczynać się od `-`, dlatego podawaj go jako `--key=KLUCZ` albo przez `ZAI_API_KEY`.
+
 ## Przykłady
 
 ```bash
@@ -44,7 +46,7 @@ python3 generator.py --mode once --value 999
 
 ## Dane przykładowe (F11)
 
-`seed_demo.py` loguje się jako administrator, tworzy serie dla czterech miast, rejestruje dla każdej czujnik i uruchamia generator w trybie historycznym:
+`seed_demo.py` loguje się jako administrator, tworzy serie dla pięciu miast (Warszawa, Kraków, Gdańsk, Zakopane, Katowice), rejestruje dla każdej czujnik i uruchamia generator w trybie historycznym:
 
 ```bash
 ZAI_ADMIN_PASSWORD='...' python3 seed_demo.py --api https://pomiary.example.com --user admin
