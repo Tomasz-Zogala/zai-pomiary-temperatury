@@ -1,0 +1,168 @@
+<div class="page">
+  <h1>Pomiary temperatury w miastach</h1>
+  <p class="summary">
+    Zakres:
+    <strong>{{ applied().from ? (applied().from | date: 'd MMM yyyy, HH:mm') : 'od początku' }}</strong>
+    –
+    <strong>{{ applied().to ? (applied().to | date: 'd MMM yyyy, HH:mm') : 'teraz' }}</strong>.
+    Serie:
+    <strong>{{ visibleNames() }}</strong>.
+  </p>
+
+  <div class="layout">
+    <aside class="card filters no-print" aria-labelledby="filters-heading">
+      <h2 id="filters-heading">Filtry</h2>
+
+      <form [formGroup]="filters" (ngSubmit)="apply()" novalidate>
+        <mat-form-field appearance="outline">
+          <mat-label>Od</mat-label>
+          <input matInput type="datetime-local" formControlName="from" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Do</mat-label>
+          <input matInput type="datetime-local" formControlName="to" aria-describedby="to-hint" />
+          <mat-hint id="to-hint">Puste pole oznacza „do teraz”</mat-hint>
+        </mat-form-field>
+        @if (filters.hasError('range') && filters.touched) {
+          <p class="error-box" role="alert">Data „od” nie może być późniejsza niż data „do”.</p>
+        }
+        <button mat-flat-button type="submit" [disabled]="loadingData()">Pokaż</button>
+      </form>
+
+      <div class="quick" role="group" aria-label="Szybki wybór zakresu">
+        <button mat-stroked-button type="button" (click)="quickRange(0.25)">15 min</button>
+        <button mat-stroked-button type="button" (click)="quickRange(1)">1 h</button>
+        <button mat-stroked-button type="button" (click)="quickRange(24)">24 h</button>
+        <button mat-stroked-button type="button" (click)="quickRange(72)">3 dni</button>
+        <button mat-stroked-button type="button" (click)="quickRange(168)">7 dni</button>
+        <button mat-stroked-button type="button" (click)="quickRange(null)">Wszystko</button>
+      </div>
+
+      <fieldset class="series-list">
+        <legend>Serie na wykresie</legend>
+        @if (loadingSeries()) {
+          <p>Wczytywanie serii…</p>
+        } @else if (series().length === 0) {
+          <p>Brak serii.</p>
+        } @else {
+          @for (s of series(); track s.id) {
+            <mat-checkbox [checked]="selected().has(s.id)" (change)="toggleSeries(s.id, $event.checked)">
+              <span class="series-label">
+                <app-series-glyph [color]="s.color" [shape]="shapes().get(s.id)!" />
+                {{ s.name }}
+                <span class="visually-hidden">(znacznik: {{ shapeName(s.id) }})</span>
+              </span>
+            </mat-checkbox>
+          }
+          <div class="actions">
+            <button mat-button type="button" (click)="selectAll(true)">Zaznacz wszystkie</button>
+            <button mat-button type="button" (click)="selectAll(false)">Odznacz wszystkie</button>
+          </div>
+        }
+      </fieldset>
+
+      <div class="live">
+        <mat-slide-toggle [checked]="liveEnabled()" (change)="setLive($event.checked)" [disabled]="!isLiveRange()">
+          Aktualizuj na żywo
+        </mat-slide-toggle>
+        <p class="live-status" aria-live="polite">
+          @if (!isLiveRange()) {
+            Dostępne, gdy pole „Do” jest puste.
+          } @else if (liveStatus() === 'open') {
+            <span class="dot" aria-hidden="true"></span> Połączono – nowe wyniki pojawiają się automatycznie.
+          } @else if (liveStatus() === 'connecting') {
+            Łączenie z serwerem…
+          } @else if (liveStatus() === 'error') {
+            Brak połączenia na żywo.
+          }
+        </p>
+      </div>
+    </aside>
+
+    <div class="content">
+      <section class="card" aria-labelledby="chart-heading">
+        <div class="section-head">
+          <h2 id="chart-heading">Wykres</h2>
+          <button mat-stroked-button type="button" class="no-print" (click)="print()">Drukuj</button>
+        </div>
+
+        @if (loadingData() || loadingSeries()) {
+          <mat-progress-bar mode="indeterminate" aria-label="Wczytywanie danych" />
+          <p class="visually-hidden" role="status">Wczytywanie danych…</p>
+        }
+        @if (error(); as err) {
+          <div class="error-box" role="alert">
+            <p>{{ err }}</p>
+            <button mat-stroked-button type="button" (click)="loadSeries()">Spróbuj ponownie</button>
+          </div>
+        }
+        @if (truncated()) {
+          <p class="info-box">Pokazano {{ measurements().length | number }} najnowszych wyników. Zawęź zakres, aby zobaczyć starsze.</p>
+        }
+        @if (!loadingData() && !loadingSeries() && !error() && visibleSeries().length === 0) {
+          <p class="info-box">Wybierz co najmniej jedną serię.</p>
+        } @else if (!loadingData() && !loadingSeries() && !error() && measurements().length === 0) {
+          <div class="info-box" role="status">
+            <p>Brak wyników w wybranym zakresie czasu.</p>
+            <button mat-stroked-button type="button" class="no-print" (click)="quickRange(null)">Pokaż wszystkie wyniki</button>
+          </div>
+        }
+
+        <app-measurement-chart [series]="visibleSeries()" [measurements]="measurements()" [highlight]="highlight()" />
+      </section>
+
+      <section class="card" aria-labelledby="table-heading">
+        <h2 id="table-heading">Tabela wyników</h2>
+        <p class="hint no-print">Kliknij wartość (lub naciśnij Enter), aby wyróżnić punkt na wykresie. Kliknięcie czasu wyróżnia wszystkie punkty z tej chwili.</p>
+
+        @if (rows().length === 0 && !loadingData()) {
+          <p>Brak wyników w wybranym zakresie.</p>
+        } @else {
+          <div class="table-scroll">
+            <table class="data-table">
+              <caption class="visually-hidden">Wyniki pomiarów; każda seria w osobnej kolumnie</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Czas</th>
+                  @for (s of visibleSeries(); track s.id) {
+                    <th scope="col" class="num">
+                      <span class="th-series">
+                        <app-series-glyph [color]="s.color" [shape]="shapes().get(s.id)!" />
+                        {{ s.name }}@if (s.unit) { [{{ s.unit }}] }
+                      </span>
+                    </th>
+                  }
+                </tr>
+              </thead>
+              <tbody>
+                @for (r of rows(); track r.ts) {
+                  <tr [class.row-selected]="isSelected(r.ts)">
+                    <th scope="row">
+                      <button type="button" class="cell-btn" [attr.aria-pressed]="isSelected(r.ts)" (click)="select(r.ts)">
+                        {{ r.ts | date: 'd.MM.yyyy HH:mm:ss' }}
+                      </button>
+                    </th>
+                    @for (s of visibleSeries(); track s.id) {
+                      @let m = r.cells.get(s.id);
+                      <td class="num" [class.cell-selected]="isSelected(r.ts, s.id)">
+                        @if (m) {
+                          <button type="button" class="cell-btn" [attr.aria-pressed]="isSelected(r.ts, s.id)"
+                                  [attr.aria-label]="(m.value | number: '1.1-2') + (s.unit ? ' ' + s.unit : '') + ' – ' + s.name + ', ' + (r.ts | date: 'd.MM HH:mm')"
+                                  (click)="select(r.ts, s.id)">
+                            {{ m.value | number: '1.1-2' }}
+                          </button>
+                        } @else {
+                          <span aria-label="brak">–</span>
+                        }
+                      </td>
+                    }
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
+    </div>
+  </div>
+</div>
