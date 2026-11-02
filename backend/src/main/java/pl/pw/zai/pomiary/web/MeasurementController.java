@@ -3,13 +3,18 @@ package pl.pw.zai.pomiary.web;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import pl.pw.zai.pomiary.config.AppProperties;
 import pl.pw.zai.pomiary.domain.Measurement;
 import pl.pw.zai.pomiary.domain.Series;
+import pl.pw.zai.pomiary.live.MeasurementBroadcaster;
 import pl.pw.zai.pomiary.repo.MeasurementRepository;
 import pl.pw.zai.pomiary.repo.SensorRepository;
 import pl.pw.zai.pomiary.repo.SeriesRepository;
@@ -37,13 +42,27 @@ public class MeasurementController {
     private final SeriesRepository series;
     private final SensorRepository sensors;
     private final AppProperties props;
+    private final MeasurementBroadcaster broadcaster;
+    private final ApplicationEventPublisher events;
 
     public MeasurementController(MeasurementRepository measurements, SeriesRepository series,
-                                 SensorRepository sensors, AppProperties props) {
+                                 SensorRepository sensors, AppProperties props,
+                                 MeasurementBroadcaster broadcaster, ApplicationEventPublisher events) {
         this.measurements = measurements;
         this.series = series;
         this.sensors = sensors;
         this.props = props;
+        this.broadcaster = broadcaster;
+        this.events = events;
+    }
+
+    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter stream() {
+        SseEmitter emitter = broadcaster.subscribe();
+        if (emitter == null) {
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Zbyt wiele połączeń na żywo, spróbuj później");
+        }
+        return emitter;
     }
 
     @GetMapping
@@ -98,7 +117,9 @@ public class MeasurementController {
 
         Measurement m = measurements.save(new Measurement(s.getId(), sensor.sensorId(), v, ts));
         sensors.touch(sensor.sensorId(), ts);
-        return ResponseEntity.created(URI.create("/api/measurements/" + m.getId())).body(MeasurementDto.of(m));
+        MeasurementDto dto = MeasurementDto.of(m);
+        events.publishEvent(new MeasurementBroadcaster.MeasurementSaved(dto));
+        return ResponseEntity.created(URI.create("/api/measurements/" + m.getId())).body(dto);
     }
 
     private static List<Long> parseSeries(String raw) {
